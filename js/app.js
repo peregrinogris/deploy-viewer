@@ -49,7 +49,7 @@ const renderPlots = () => {
       <div class="panel-heading">
         <h2>${label}</h2>
       </div>
-      <div class="panel-body">
+      <div class="panel-body ${serverId}">
         <h4>Deploy Punchcard <small>${periodText}</small></h4>
         <div id="${serverId}"></div>
         <h4>Deploys <small>${periodText}</small></h4>
@@ -63,7 +63,6 @@ const renderPlots = () => {
       .then(r => (r.json()))
       .then(deploys => {
         plotDeploys(deploys, `#${serverId}`);
-        showTL(deploys, `#${serverId}-timeline`);
       });
   });
 };
@@ -87,15 +86,31 @@ const plotDeploys = (deploys, element) => {
       });
     }
   }
+  let deploysInPeriod = false;
   deploys.forEach(deploy => {
-    const deployDate = moment(deploy.date);
+    const deployDate = moment(deploy.date).add(1, 'hour');
     if (deployDate.isAfter(periodStart)) {
+      deploysInPeriod = true;
       const day = deployDate.day();
       const hour = deployDate.hour();
+      // First element is the row header
       data[day][hour + 1].value += 1;
     }
   });
-  showGraph(data, element);
+  if (deploysInPeriod) {
+    showGraph(data, element);
+    showTL(deploys, `${element}-timeline`);
+  } else {
+    const panel = document.querySelector(`.panel-body.${element.replace('#', '')}`);
+    // Remove all panel children
+    while (panel.firstChild) {
+      panel.removeChild(panel.firstChild);
+    }
+    const template = document.createElement('template');
+    const content = `<h4>Sin Deploys en el período</h4>`;
+    template.innerHTML = content;
+    panel.appendChild(template.content.firstChild);
+  }
 }
 
 const showTL = (deploys, element) => {
@@ -104,10 +119,11 @@ const showTL = (deploys, element) => {
   let tickTime;
   let tickInterval;
   let tickFormat = "%d/%m/%y";
+
   switch(getPeriodOption().value) {
     case 'last_day':
-      tickTime = d3.time.minute;
-      tickInterval = 30;
+      tickTime = d3.time.hour;
+      tickInterval = 1;
       tickFormat = "%H:%M";
       endingTime = [5, 'minute'];
       break;
@@ -127,16 +143,16 @@ const showTL = (deploys, element) => {
       endingTime = [1, 'hour'];
       break;
     default:
-      endingTime = [1, 'hour'];
       tickTime = d3.time.month;
       tickFormat = "%m - %Y";
+      endingTime = [1, 'hour'];
       break;
   }
   const data = [{
     times: []
   }];
   deploys.forEach(deploy => {
-    const deployDate = moment(deploy.date);
+    const deployDate = moment(deploy.date).add(1, 'hour');
     if (deployDate.isAfter(periodStart)) {
       data[0].times.push({
         "starting_time": deployDate.valueOf(),
@@ -146,6 +162,8 @@ const showTL = (deploys, element) => {
   });
 
   const chart = d3.timeline()
+    .beginning(moment(periodStart).startOf('day'))
+    .ending(moment().endOf('day'))
     .itemHeight(30)
     .rotateTicks(45)
     .showTimeAxisTick()
