@@ -11,7 +11,7 @@ const getPeriodStart = (text) => {
   const period = getPeriodOption();
   switch (period.value) {
     case 'last_day':
-      return moment().subtract(1, 'day');
+      return moment().subtract(24, 'hour');
       break;
     case 'last_week':
       return moment().subtract(1, 'week').startOf('day');
@@ -119,9 +119,13 @@ const showTL = (deploys, element) => {
   let tickTime;
   let tickInterval;
   let tickFormat = "%d/%m/%y";
+  let beginning = moment(periodStart).startOf('day');
+  let ending = moment().endOf('day');
 
   switch(getPeriodOption().value) {
     case 'last_day':
+      beginning = periodStart;
+      ending = moment().endOf('hour');
       tickTime = d3.time.hour;
       tickInterval = 1;
       tickFormat = "%H:%M";
@@ -162,8 +166,8 @@ const showTL = (deploys, element) => {
   });
 
   const chart = d3.timeline()
-    .beginning(moment(periodStart).startOf('day'))
-    .ending(moment().endOf('day'))
+    .beginning(beginning)
+    .ending(ending)
     .itemHeight(30)
     .rotateTicks(45)
     .showTimeAxisTick()
